@@ -21,6 +21,11 @@ import MenuIcon from "@material-ui/icons/Menu";
 import AddIcon from "@material-ui/icons/Add";
 import RemoveIcon from "@material-ui/icons/Remove";
 import DeleteIcon from "@material-ui/icons/Delete";
+import InputLabel from "@material-ui/core/InputLabel";
+import MenuItem from "@material-ui/core/MenuItem";
+import FormHelperText from "@material-ui/core/FormHelperText";
+import FormControl from "@material-ui/core/FormControl";
+import Select from "@material-ui/core/Select";
 
 import RemoveCircleIcon from "@material-ui/icons/RemoveCircle";
 import RemoveCircleOutlineIcon from "@material-ui/icons/RemoveCircleOutline";
@@ -36,6 +41,10 @@ const useStyles = makeStyles(theme => ({
   },
   title: {
     flexGrow: 1
+  },
+  formControl: {
+    margin: theme.spacing(1),
+    minWidth: 120
   }
 }));
 
@@ -46,21 +55,71 @@ function App() {
   const classes = useStyles();
 
   const [sakeList, setSakeList] = React.useState([]);
+  const [sakeListPhoto, setSakeListPhoto] = React.useState([]);
   const [sakeListNum, setSakeListNum] = React.useState<number[]>([]);
+  const [selectSakeType, setSelectSakeType] = React.useState("often");
 
   const intervalRef: any = useRef(null);
 
   React.useEffect(() => {
-    setSakeList(sliceByNumber(sakeDB, 2));
-    setSakeListNum(Array(sakeDB.length).fill(0));
-  }, []);
+    console.log("axios");
+    console.log(selectSakeType);
+    // axios を require してインスタンスを生成する
+    const axiosBase = require("axios");
+    axiosBase
+      .get(
+        "https://xs254766.xsrv.jp/fujitasaketen_order/alcohol/" + selectSakeType
+      )
+      .then(function(response) {
+        // handle success
+        setSakeListPhoto(
+          sliceByNumber(
+            response.data.map(columns => {
+              if (
+                columns["photo"].indexOf(
+                  "https://xs254766.xsrv.jp/fujitasaketen_order"
+                ) != -1
+              ) {
+                return columns["photo"];
+              } else {
+                return (
+                  "https://xs254766.xsrv.jp/fujitasaketen_order" +
+                  columns["photo"]
+                );
+              }
+            }),
+            2
+          )
+        );
+        setSakeListNum(Array(response.data.length).fill(0));
+        setSakeList(
+          sliceByNumber(
+            response.data.map(columns => columns["short_name"]),
+            2
+          )
+        );
+      })
+      .catch(function(error) {
+        // handle error
+        console.log("error");
+        console.log(error);
+        setSakeList(sliceByNumber(sakeDB, 2));
+        setSakeListNum(Array(sakeDB.length).fill(0));
+      });
+  }, [selectSakeType]);
 
   const sendMessage = () => {
     let messageText = "";
     sakeListNum.forEach((sakeNum, index) => {
       if (sakeNum != 0) {
+        console.log(index / 2);
+        console.log(index % 2);
+        console.log(sakeList[index / 2]);
         messageText +=
-          sakeList[index / 2][index % 2] + " " + sakeNum.toString() + "本\n";
+          sakeList[(index - (index % 2)) / 2][index % 2] +
+          " " +
+          sakeNum.toString() +
+          "本\n";
       }
     });
     messageText += "買います。";
@@ -126,6 +185,10 @@ function App() {
     setSakeListNum(tmpSakeListNum);
   };
 
+  const selectSakeTypeChange = (event: any) => {
+    setSelectSakeType(event.target.value);
+  };
+
   const StartCountChange = (changeNum, sakeID) => {
     const LONGPRESS = 1000;
     setTimeout(function() {
@@ -153,13 +216,28 @@ function App() {
             backgroundColor: "#808080"
           }}
         >
-          <p style={{ textAlign: "left", padding: "10px", margin: "0px" }}>
-            前回購入したお酒
-          </p>
-          <p style={{ textAlign: "left", padding: "10px", margin: "0px" }}>
+          <div style={{ display: "flex" }}>
+            <div style={{ textAlign: "left", padding: "10px", margin: "0px" }}>
+              前回購入したお酒
+            </div>
+            <FormControl className={classes.formControl}>
+              <InputLabel id="demo-simple-select-label">選択</InputLabel>
+              <Select
+                labelId="demo-simple-select-label"
+                id="demo-simple-select"
+                value={selectSakeType}
+                onChange={selectSakeTypeChange}
+              >
+                <MenuItem value={"ofter"}>よく買うお酒</MenuItem>
+                <MenuItem value={"all"}>全てのお酒</MenuItem>
+              </Select>
+            </FormControl>
+          </div>
+          <div style={{ textAlign: "left", padding: "10px", margin: "0px" }}>
             お酒一覧
-          </p>
+          </div>
           {sakeList.length > 0 &&
+            sakeListPhoto.length > 0 &&
             sakeList.map((sakeLine: any, index_i: number) => {
               return (
                 <div
@@ -178,6 +256,7 @@ function App() {
                       >
                         <SakeCard
                           sake={sake}
+                          sakePhoto={sakeListPhoto[index_i][index_j]}
                           sakeNum={sakeListNum[index_i * 2 + index_j]}
                           sakeID={index_i * 2 + index_j}
                           CountChange={CountChange}
@@ -190,6 +269,7 @@ function App() {
                 </div>
               );
             })}
+          <div style={{ height: "50px" }}></div>
         </div>
       </body>
       <footer>
@@ -246,6 +326,7 @@ export default App;
 
 const SakeCard = ({
   sake,
+  sakePhoto,
   sakeNum,
   sakeID,
   CountChange,
@@ -264,7 +345,7 @@ const SakeCard = ({
     >
       <div style={{ display: "flex", width: "100%" }}>
         <img
-          src={AbeImg}
+          src={sakePhoto}
           style={{
             height: "auto",
             margin: "10px",
